@@ -121,12 +121,13 @@ def get_scan_ids(base_dir = "./sample_images/"):
 
 def get_labels(ids, labels='./stage1_labels.csv'):
     df_truth = pd.read_csv(labels)
-    ys = df_truth[df_truth.id==ids][cancer]
+    ys = df_truth[df_truth.id.isin(ids)]['cancer']
     return ys
 
 
-def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True, num_scans=None):
-    all_scan_ids = get_scan_ids(base_dir)
+def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True, num_scans=None, all_scan_ids=None):
+    if all_scan_ids is None:
+        all_scan_ids = get_scan_ids(base_dir)
     if num_scans is not None:
         all_scan_ids = all_scan_ids[:num_scans]
     all_images_zoom = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
