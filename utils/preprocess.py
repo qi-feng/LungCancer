@@ -4,6 +4,7 @@ import sys
 import os
 import pandas as pd
 import scipy.ndimage.interpolation as interp
+import shutil
 
 import dicom
 
@@ -123,6 +124,21 @@ def get_labels(ids, labels='./stage1_labels.csv'):
     df_truth = pd.read_csv(labels)
     ys = df_truth[df_truth.id.isin(ids)]['cancer']
     return ys
+
+# create cancer and non-cancer dirs under base_dir; for data generator
+def create_dirs(base_dir = "./data/stage1", labels='./stage1_labels.csv'):
+    df_truth = pd.read_csv(labels)
+    cancer_dir = base_dir+"/cancer"
+    non_cancer_dir = base_dir+"/non_cancer"
+    if not os.path.exists(cancer_dir):
+        os.makedirs(cancer_dir)
+    if not os.path.exists(non_cancer_dir):
+        os.makedirs(non_cancer_dir)
+    for index, row in df_truth.iterrows():
+        if row['cancer']==1:
+            shutil.move(base_dir+'/'+row['id'], cancer_dir+'/'+row['id'])
+        else:
+            shutil.move(base_dir + '/' + row['id'], non_cancer_dir + '/' + row['id'])
 
 
 def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True, num_scans=None, all_scan_ids=None):

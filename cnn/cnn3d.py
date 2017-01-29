@@ -5,7 +5,7 @@ import numpy as np
 
 from keras.models import Model, Sequential, model_from_json
 from keras.layers.core import Dense, Dropout, Activation, Flatten
-from keras.layers.convolutional import Convolution3D, MaxPooling3D
+from keras.layers.convolutional import Convolution3D, MaxPooling3D, AveragePooling3D
 from keras.preprocessing.image import ImageDataGenerator
 from sklearn.cross_validation import StratifiedShuffleSplit
 
@@ -13,7 +13,7 @@ from keras.optimizers import SGD, RMSprop
 from keras.utils import np_utils, generic_utils
 from keras.regularizers import l2, activity_l2
 
-from keras.layers import Input, Dense, Convolution2D, MaxPooling2D, UpSampling2D, merge
+#from keras.layers import Input, Dense, Convolution2D, MaxPooling2D, UpSampling2D, merge
 from keras.optimizers import Adam
 from keras import backend as K
 from keras.callbacks import ModelCheckpoint, EarlyStopping
@@ -40,6 +40,33 @@ from ..utils.io import *
 class cnn3d:
     def __init__(self):
         self.__model__ = None
+
+    def get_generators(self, base_dir="./data/stage1", batch_size=1, input_shape=(300, 300, 300), valid_dir=None):
+        self.base_dir = base_dir
+        self.batch_size = 1
+        # training generator
+        train_datagen = ImageDataGenerator(
+            rescale=1., horizontal_flip=True)
+        train_generator = train_datagen.flow_from_directory(
+            base_dir,
+            target_size=input_shape,
+            batch_size=batch_size,
+            class_mode='binary')  # since we use binary_crossentropy loss, we need binary labels
+        self.train_generator = train_generator
+
+        # validation generator
+        if valid_dir is not None:
+            valid_datagen = ImageDataGenerator(rescale=1.)
+            valid_generator = valid_datagen.flow_from_directory(
+                valid_dir,
+                target_size=input_shape,
+                batch_size=batch_size,
+                class_mode='binary')
+
+            self.valid_generator = valid_generator
+            return train_generator, valid_generator
+
+        return train_generator
 
     def load_data(self, ids, base_dir = "./sample_images/"):
         self.base_dir = base_dir
@@ -109,15 +136,21 @@ class cnn3d:
 
     def __define_model__(self,
                input_shape=(300, 300, 300), nb_classes=2,
-               n_filters=[32,32], filter_sizes=[6,6], filter_stride1=[1,1],
+               n_filters=[32,32], filter_sizes=[6,6], filter_strides=[1,1],
                border_modes=['valid','same'], pool_sizes=[2,2], filter_drops=[0.25, 0.25],
                dense_ns=[256,64], dense_drops=[0.5, 0.5], pool_method="max"):
 
         model = Sequential()
         model.add(Convolution3D(nb_filter=n_filters[0], len_conv_dim1=filter_sizes[0], len_conv_dim2=filter_sizes[0],
                                 len_conv_dim3=filter_sizes[0], init='normal', W_regularizer=l2(0.4),
+                                subsample=(filter_strides[0], filter_strides[0], filter_strides[0]),
                                 border_mode=border_modes[0], input_shape=input_shape))
         model.add(Activation('relu'))
+        if pool_method == "Max" or pool_method == "MaxPooling" or pool_method == "max":
+            model.add(MaxPooling3D(pool_size=(pool_sizes[0], pool_sizes[0], pool_sizes[0]), border_mode=border_modes[0]))
+        elif pool_method == "Avg" or pool_method == "avg" or pool_method == "average" or pool_method == "Average":
+            model.add(AveragePooling3D(pool_size=(pool_sizes[0], pool_sizes[0], pool_sizes[0]), border_mode=border_modes[0]))
+
         model.add(Dropout(filter_drops[0]))
 
         model.add(Flatten())
@@ -130,7 +163,8 @@ class cnn3d:
 
         return model
 
-    def train(self, batch_size=128, early_stop=10, nb_epoch=5, norm_x=1.):
+
+    def train(self, batch_size=1, early_stop=10, nb_epoch=5, norm_x=1.):
         model = self.__model__
         nb_classes = self.__nb_classes__
         train_x = self.train_x
