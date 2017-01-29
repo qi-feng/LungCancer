@@ -9,7 +9,10 @@ import dicom
 
 from glob import glob
 
-
+try:
+    import cv2
+except:
+    print("No opencv")
 
 class ct_scan:
     def __init__(self, scan_token, base_dir = "./sample_images/"):
@@ -59,7 +62,7 @@ class ct_scan:
 
         num_slices = len(f_list_)
         # we verified that all slices are 512x512
-        slices = np.zeros((num_slices, 512, 512)).astype('float')
+        slices = np.zeros((num_slices, 512, 512)).astype(float)
 
         for i, slice_ in enumerate(dicoms_):
             # ds_ = dicom.read_file(slice_f_)
@@ -114,7 +117,12 @@ def get_scan_ids(base_dir = "./sample_images/"):
     return scans_
 
 
-def get_all_images(base_dir = "./sample_images/", resample=True):
+def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True):
     all_scan_ids = get_scan_ids(base_dir)
-    for scan_id_ in all_scan_ids:
+    all_images = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
+    for i, scan_id_ in enumerate(all_scan_ids):
         slices_, spacings_ = get_images(scan_id_, base_dir=base_dir, resample=resample)
+        if slices_.shape != (z, x, y):
+            slices_ = cv2.resize(slices_, (x, y), interpolation=cv2.INTER_CUBIC)
+        all_images[i] = slices_
+    return all_images
