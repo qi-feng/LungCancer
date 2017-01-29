@@ -2,7 +2,7 @@
 import numpy as np
 import sys
 import os
-#import pandas as pd
+import pandas as pd
 import scipy.ndimage.interpolation as interp
 
 import dicom
@@ -119,9 +119,16 @@ def get_scan_ids(base_dir = "./sample_images/"):
             scans_.append(scan_)
     return scans_
 
+def get_labels(ids, labels='./stage1_labels.csv'):
+    df_truth = pd.read_csv(labels)
+    ys = df_truth[df_truth.id==ids][cancer]
+    return ys
 
-def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True):
+
+def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True, num_scans=None):
     all_scan_ids = get_scan_ids(base_dir)
+    if num_scans is not None:
+        all_scan_ids = all_scan_ids[:num_scans]
     all_images_zoom = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
     for i, scan_id_ in enumerate(all_scan_ids):
         slices_, spacings_ = get_images(scan_id_, base_dir=base_dir, resample=resample)
@@ -147,3 +154,4 @@ def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resam
                     all_images_zoom[i, :slices_.shape[0], :slices_.shape[1], :slices_.shape[1]] = slices_[:, :, :]
         #try to crop the center part of the image 300mm^3
     return all_images_zoom
+
