@@ -25,6 +25,9 @@ from sklearn import cross_validation
 from sklearn import preprocessing
 from skimage.transform import resize
 
+from keras.layers import Embedding
+from keras.layers import LSTM
+
 import seaborn as sns
 try:
     sns.set_style("ticks")
@@ -37,7 +40,7 @@ from ..utils.preprocess import *
 from ..utils.io import *
 
 
-class cnn3d:
+class cnn_base:
     def __init__(self):
         self.__model__ = None
 
@@ -106,20 +109,19 @@ class cnn3d:
             self.__model__ = model_from_json(f.read())
         self.__model__.load_weights(weight_file)
 
-
     def load_weights(self, weight_file):
         self.__model__.load_weights(weight_file)
-
 
     def predict_stats(self, model, test_x, norm=1.):
         pred_ = model.predict_proba(test_x / norm)
         print("The mean predictions are", np.mean(pred_, axis=0))
         print("The std dev of the predictions are", np.std(pred_, axis=0))
 
+class cnn3d(cnn_base):
     def init_model(self,
-                   input_shape=(300, 300, 300), nb_classes=2, loss_func='binary_crossentropy',
+                   input_shape=(300, 1, 300, 300), nb_classes=2, loss_func='binary_crossentropy',
                    lr=0.01, decay=1e-6, momentum=0.9, optimizer=None, **kwarg):
-        print("Initializing a ConvNet model...")
+        print("Initializing a 3D ConvNet model...")
         # __define_model__ is a template to be implemented in every model
         model = self.__define_model__(input_shape=input_shape, nb_classes=nb_classes, **kwarg)
         if optimizer is None:
@@ -135,14 +137,14 @@ class cnn3d:
         self.__nb_classes__ = nb_classes
 
     def __define_model__(self,
-               input_shape=(300, 300, 300), nb_classes=2,
+               input_shape=(300, 1, 300, 300), nb_classes=2,
                n_filters=[32,32], filter_sizes=[6,6], filter_strides=[1,1],
                border_modes=['valid','same'], pool_sizes=[2,2], filter_drops=[0.25, 0.25],
                dense_ns=[256,64], dense_drops=[0.5, 0.5], pool_method="max"):
 
         model = Sequential()
-        model.add(Convolution3D(nb_filter=n_filters[0], len_conv_dim1=filter_sizes[0], len_conv_dim2=filter_sizes[0],
-                                len_conv_dim3=filter_sizes[0], init='normal', W_regularizer=l2(0.4),
+        model.add(Convolution3D(nb_filter=n_filters[0], kernel_dim1=filter_sizes[0], kernel_dim2=filter_sizes[0],
+                                kernel_dim3=filter_sizes[0], init='normal', W_regularizer=l2(0.4),
                                 subsample=(filter_strides[0], filter_strides[0], filter_strides[0]),
                                 border_mode=border_modes[0], input_shape=input_shape))
         model.add(Activation('relu'))
@@ -230,6 +232,13 @@ class cnn3d:
             )
 
         self.__m_history__ = m_history
+
+
+class rcnn(cnn_base):
+    def init_model(self,
+                   input_shape=(300, 1, 300, 300), nb_classes=2, loss_func='binary_crossentropy',
+                   lr=0.01, decay=1e-6, momentum=0.9, optimizer=None, lstm_output_size = 70, **kwarg):
+        print("Initializing a recurrent ConvNet model...")
 
 
 def split_train_test(x, y, ratio=0.2, random_state=1234):
