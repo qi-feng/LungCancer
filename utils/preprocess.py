@@ -19,6 +19,9 @@ class ct_scan:
         self.base_dir = "./sample_images/"
         self.scan_token = scan_token
         self.set_resampling_spacing([1.,1.,1.])
+        self.zoom_nx = 300
+        self.zoom_ny = 300
+        self.zoom_nz = 300
 
     def set_resampling_spacing(self, new_spacings):
         self.resampling_spacing=new_spacings
@@ -119,10 +122,28 @@ def get_scan_ids(base_dir = "./sample_images/"):
 
 def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resample=True):
     all_scan_ids = get_scan_ids(base_dir)
-    all_images = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
+    all_images_zoom = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
     for i, scan_id_ in enumerate(all_scan_ids):
         slices_, spacings_ = get_images(scan_id_, base_dir=base_dir, resample=resample)
         if slices_.shape != (z, x, y):
-            slices_ = cv2.resize(slices_, (x, y), interpolation=cv2.INTER_CUBIC)
-        all_images[i] = slices_
-    return all_images
+            if slices_.shape[1] > x:
+                #crop the middel 300mm
+                xlow = (slices_.shape[1] - x) // 2
+                ylow = (slices_.shape[2] - y) // 2
+                xhi = xlow + x
+                yhi = ylow + y
+                if slices_.shape[0] > z:
+                    zlow = (slices_.shape[0] - z) // 2
+                    all_images_zoom[i] = slices_[zlow:zlow + z, xlow:xlow + x, ylow:ylow + y]
+                else:
+                    all_images_zoom[i, :slices_.shape[0]] = slices_[:, xlow:xlow + x, ylow:ylow + y]
+            else:
+                xlow = 0
+                ylow = 0
+                if slices_.shape[0] > z:
+                    zlow = (slices_.shape[0] - z) // 2
+                    all_images_zoom[i, :, :slices_.shape[1], :slices_.shape[1]] = slices_[zlow:zlow + z, :, :]
+                else:
+                    all_images_zoom[i, :slices_.shape[0], :slices_.shape[1], :slices_.shape[1]] = slices_[:, :, :]
+        #try to crop the center part of the image 300mm^3
+    return all_images_zoom
