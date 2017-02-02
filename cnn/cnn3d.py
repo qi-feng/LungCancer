@@ -233,6 +233,12 @@ class cnn3d(cnn_base):
 
         self.__m_history__ = m_history
 
+    def train_generator(self, base_dir="./data/stage1"):
+        model = self.__model__
+        model.fit_generator(generators3D(base_dir=base_dir, batch_size=2),
+                            samples_per_epoch=100, nb_epoch=1, verbose=2, show_accuracy=True,
+                            validation_data=None, class_weight=None)
+
 
 class rcnn(cnn_base):
     def init_model(self,

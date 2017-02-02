@@ -6,6 +6,8 @@ import pandas as pd
 import scipy.ndimage.interpolation as interp
 import shutil
 
+from keras.preprocessing.image import ImageDataGenerator, array_to_img, img_to_array, load_img
+
 import dicom
 
 from glob import glob
@@ -17,7 +19,7 @@ except:
 
 class ct_scan:
     def __init__(self, scan_token, base_dir = "./sample_images/"):
-        self.base_dir = "./sample_images/"
+        self.base_dir = base_dir
         self.scan_token = scan_token
         self.set_resampling_spacing([1.,1.,1.])
         self.zoom_nx = 300
@@ -29,7 +31,7 @@ class ct_scan:
 
     # get filenames of all slices for one scan/patient
     def get_flist_one_scan(self):
-        f_list = glob(self.base_dir + self.scan_token + "/*.dcm")
+        f_list = glob(self.base_dir + '/' + self.scan_token + "/*.dcm")
         return f_list
 
     # get slice thickness
@@ -66,7 +68,9 @@ class ct_scan:
 
         num_slices = len(f_list_)
         # we verified that all slices are 512x512
-        slices = np.zeros((num_slices, 512, 512)).astype(float)
+        #slices = np.zeros((num_slices, 512, 512)).astype(float)
+        # int type to save memory
+        slices = np.zeros((num_slices, 512, 512)).astype(int)
 
         for i, slice_ in enumerate(dicoms_):
             # ds_ = dicom.read_file(slice_f_)
@@ -80,6 +84,8 @@ class ct_scan:
     def resample(self, slices=None, new_spacings=None):
         if slices is None:
             if not hasattr(self, 'slices'):
+                self.get_slices_one_scan()
+            elif self.slices.shape[0]==0:
                 self.get_slices_one_scan()
             slices = self.slices
         if new_spacings is None:
@@ -146,7 +152,9 @@ def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resam
         all_scan_ids = get_scan_ids(base_dir)
     if num_scans is not None:
         all_scan_ids = all_scan_ids[:num_scans]
-    all_images_zoom = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
+    #all_images_zoom = np.zeros((len(all_scan_ids), z, x, y)).astype(float)
+    # int type to save memory
+    all_images_zoom = np.zeros((len(all_scan_ids), z, x, y)).astype(int)
     for i, scan_id_ in enumerate(all_scan_ids):
         slices_, spacings_ = get_images(scan_id_, base_dir=base_dir, resample=resample)
         if slices_.shape != (z, x, y):
@@ -171,4 +179,23 @@ def get_all_images(x = 300, y = 300, z=300, base_dir = "./sample_images/", resam
                     all_images_zoom[i, :slices_.shape[0], :slices_.shape[1], :slices_.shape[1]] = slices_[:, :, :]
         #try to crop the center part of the image 300mm^3
     return all_images_zoom
+
+
+def generators3D(base_dir = "./data/stage1", batch_size=2, input_shape=(300, 300, 300)):
+    #training generator
+    cancer_dir = base_dir+"/cancer/"
+    non_cancer_dir = base_dir+"/non_cancer/"
+    c_list = [x[0].split('/')[-1] for x in os.walk(cancer_dir)]
+    nc_list = [x[0].split('/')[-1] for x in os.walk(non_cancer_dir)]
+    c_list = c_list[1:]
+    nc_list = nc_list[1:]
+    while 1:
+        for c_id, nc_id in zip(c_list, nc_list):
+            c_im = get_images(c_id, base_dir=cancer_dir)
+            nc_im = get_images(nc_id, base_dir=non_cancer_dir)
+            img_batch = np.concatenate(c_im, nc_im)
+            y = np.array([1,0])
+            yield (img_batch, y)
+
+
 
